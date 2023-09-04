@@ -33,23 +33,12 @@ def process_word():
 
     NEURAL_NETWORK = [0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1]
 
-    API_DATA = {"input": input_word,
-            "output": output_word,
-            "balls": []}
-    
-    BALLS_ARR = API_DATA["balls"]
+    API_DATA = {
+        "input": input_word,
+        "output": output_word,
+        "balls": [{"id": 0, "values": [{"val": str(neuron)} for neuron in NEURAL_NETWORK]}]
+    }
 
-    id = 0
-    for num in range(1):
-       BALL_DICT = {}
-       BALLS_ARR.append(BALL_DICT)
-       BALL_DICT["id"] = id
-       BALL_DICT["values"] = []
-       id += 1
-       for NEURON in NEURAL_NETWORK:
-               BALL_DICT["values"].append({"val": str(NEURON)})
-#    print(len(BALL_DICT["values"]))
-               
-    # print(API_DATA["balls"])
+    print(API_DATA["balls"])
     return API_DATA
     

@@ -1,148 +1,82 @@
+import numpy as np
+import pandas as pd
 import random
-'''
-Neuron Object
-'''
+
 class Neuron:
-    '''
-    state: 1 is 'firing' 0 is 'not firing'
-        - Denoted as v_i in the 1982 Hopfield paper
-    threshold: used to determin state
-        - Denoted as U in the 1982 Hopfield paper
-    '''
     def __init__(self, state=0, threshold=0):
         self.state = state
         self.threshold = threshold
     
-'''
-Neural Network
-'''
 class Neural_Network:
-
     def __init__(self, num_neurons, states_set):
-        '''
-        neurons: A list of all neurons in the network. 
-        connection_strengths: Matrix of connection strengths between neurons
-            - Denoted T in the 1982 Hopfield paper
-            - T_(ij) is the connection strength between neurons i and j
-            - T is a symetric matrix because the connection strength
-        '''
         self.neurons = [Neuron() for _ in range(num_neurons)]
-        self.connection_strengths = [[0 for _ in range(len(self.neurons))] for _ in range(len(self.neurons))]
-        self.states_set = states_set
+        self.connection_strengths = np.zeros((num_neurons, num_neurons))
+        self.states_set = np.array(states_set)
         self.update_connection_strengths()
 
     def update_neuron_states(self):
-        if [neuron.state for neuron in self.neurons] in self.states_set:
-            return
-        
-        loop = True
-        k = 0
-        while loop:
+        while True:
+            neuron_states = np.array([neuron.state for neuron in self.neurons])
+            if np.any((self.states_set == neuron_states).all(axis=1)):
+                break
+
             for i, neuron_i in enumerate(self.neurons):
-                num = 0
-                for j, neuron_j in enumerate(self.neurons):
-                    if i != j:
-                        num += self.connection_strengths[i][j]*neuron_j.state
+                num = np.dot(self.connection_strengths[i], neuron_states) - self.connection_strengths[i,i] * neuron_states[i]
 
                 v_new = 1 if num >= neuron_i.threshold else 0
                 v_old = neuron_i.state
-
-                change_in_enegrgy = self.change_in_energy(v_old, v_new, i)
-
                 neuron_i.state = v_new
-                print(f'Change in energy: {change_in_enegrgy} | v_old: {v_old} | v_new: {v_new} | {abs(v_old-v_new)}')
-                if [neuron.state for neuron in self.neurons] in self.states_set:
-                    print(f'BREAK: {[neuron.state for neuron in self.neurons]}')
-                    loop = False
-                    break
-                if [abs(neuron.state - 1) for neuron in self.neurons] in self.states_set:
-                    for neuron in self.neurons:
-                        neuron.state = abs(neuron.state - 1)
-                    print(f'BREAK CPL: {[neuron.state for neuron in self.neurons]}')
-                    loop = False
-                    break
-                k += 1
+
     def update_neuron_states_random(self):
-        loop = True
-        input_seq = [neuron.state for neuron in self.neurons]
-        neuron_indicies = [i for i in range(len(self.neurons))]
         k = 0
-        while(loop):
+        input_seq = [neuron.state for neuron in self.neurons]
+        while True:
             if k >= len(self.neurons):
                 for i, neuron in enumerate(self.neurons):
                     neuron.state = input_seq[i]
-                    neuron_indicies = [i for i in range(len(self.neurons))]
                 k = 0
-            
-            if neuron_indicies == []:
-                neuron_indicies = [i for i in range(len(self.neurons))]
 
-            idx = random.randint(0,len(neuron_indicies)-1)
-            i = neuron_indicies[idx]
+            i = random.choice(range(len(self.neurons)))
             neuron_i = self.neurons[i]
-            del neuron_indicies[idx]
-            num = 0
-            for j, neuron_j in enumerate(self.neurons):
-                if i != j:
-                    num += self.connection_strengths[i][j]*neuron_j.state
 
+            neuron_states = np.array([neuron.state for neuron in self.neurons])
+            if np.any((self.states_set == neuron_states).all(axis=1)):
+                break
+
+            num = np.dot(self.connection_strengths[i], neuron_states) - self.connection_strengths[i,i] * neuron_states[i]
             v_new = 1 if num >= neuron_i.threshold else 0
-            v_old = neuron_i.state
-
-            change_in_enegrgy = self.change_in_energy(v_old, v_new, i)
 
             neuron_i.state = v_new
-            #print(f'Change in energy: {change_in_enegrgy} | v_old: {v_old} | v_new: {v_new} | {abs(v_old-v_new)}')
-            if [neuron.state for neuron in self.neurons] in self.states_set:
-                print(f'BREAK: {[neuron.state for neuron in self.neurons]}')
-                loop = False
-            if [abs(neuron.state - 1) for neuron in self.neurons] in self.states_set:
-                for neuron in self.neurons:
-                    neuron.state = abs(neuron.state - 1)
-                print(f'BREAK CPL: {[neuron.state for neuron in self.neurons]}')
-                loop = False
             k += 1
-            
-    def update_connection_strengths(self):
-        for i in range(len(self.connection_strengths)):
-            for j in range(i):
-                for state_set in self.states_set:
-                    self.connection_strengths[i][j] += (2*state_set[i]-1)*(2*state_set[j]-1)
-                self.connection_strengths[j][i] = self.connection_strengths[i][j]
-                
-    def get_energy(self):
-        energy = 0
 
-        for i, neuron_i in enumerate(self.neurons):
-            for j, neuron_j in enumerate(self.neurons):
-                if i != j:
-                    energy += self.connection_strengths[i][j]*neuron_i.state * neuron_j.state * -0.5
-        
+    def update_connection_strengths(self):
+        for state in self.states_set:
+            state_adjusted = 2 * state - 1
+            self.connection_strengths += np.outer(state_adjusted, state_adjusted)
+        np.fill_diagonal(self.connection_strengths, 0)  # Set diagonal to 0
+
+    def get_energy(self):
+        neuron_states = np.array([neuron.state for neuron in self.neurons])
+        energy = -0.5 * np.sum(neuron_states @ self.connection_strengths * neuron_states)
         return energy
 
-    def change_in_energy(self, v_old, v_new, i):
-        delta_E = 0
-        
-        for j, neuron in enumerate(self.neurons):
-            if i != j:
-                delta_E += self.connection_strengths[i][j]*neuron.state
 
-        delta_E *= (v_new - v_old)
-
-        return delta_E
-    
-# NEW CLASS
 
 class Text_Processor:
     def __init__(self, words):
-        self.words = words
-        
-        binary_words, num_neurons = self.words_to_binary(self.words)
-        states_set = [self.bin_str_to_list(bin_word) for bin_word in binary_words]
 
+        self.words = words
+        binary_words, num_neurons = self.words_to_binary(self.words)
+
+        # Create a DataFrame to manage words and their binary forms AFTER computing binary words
+        self.df = pd.DataFrame({
+            'word': words,
+            'binary': binary_words
+        })
+
+        states_set = [self.bin_str_to_list(bin_word) for bin_word in binary_words]
         self.neural_network = Neural_Network(num_neurons, states_set)
 
-            
     def word_to_binary(self, word):
         binary_word = ''.join(format(ord(c), '08b') for c in word)
         print(binary_word)
@@ -155,12 +89,15 @@ class Text_Processor:
 
     def words_to_binary(self, words):
         binary_words = [self.word_to_binary(word) for word in words]
-
-        max_bits = 0
-        for bin_word in binary_words:
-            max_bits = len(bin_word) if max_bits < len(bin_word) else max_bits
         
-        #binary_words = [bin_word.zfill(max_bits) for bin_word in binary_words]
+        # Move the dataframe creation here
+        self.df = pd.DataFrame({
+            'word': words,
+            'binary': binary_words
+        })
+
+        # Extracting max_bits using pandas
+        max_bits = self.df['binary'].str.len().max()
         return binary_words, max_bits
 
     def bin_str_to_list(self, bin_str):
@@ -171,7 +108,6 @@ class Text_Processor:
 
     def process_sentence(self, sentence):
         pass
-
     def process_word(self, word):
         in_word = self.word_to_binary(word).zfill(len(self.neural_network.neurons))
         in_word = self.bin_str_to_list(in_word)
@@ -191,11 +127,12 @@ class Text_Processor:
             else:
                 out_words[out_word] += 1
 
-        most = sorted(list(out_words.values()))[len(out_words)-1]
-        idx = list(out_words.values()).index(most)
-        out_word = list(out_words.keys())[idx]
+        # Use pandas for sorting and extracting the most frequent word
+        out_words_df = pd.DataFrame(list(out_words.items()), columns=["word", "count"])
+        out_word = out_words_df.sort_values(by="count", ascending=False).iloc[0]['word']
 
         return(word, out_word)
+
 
 def main():
     #words_list = ['THE','DOG','CAT']
@@ -205,48 +142,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-'''
-    words_list = ['the','dog','cat','box','zom']
-        
-    txt_processor = Text_Processor(words=words_list)
-
-    print(txt_processor.process_word('zon'))
-'''
-
-'''
-    s1 = [1,0,0,1,0,1,0,0,0,1]
-    s2 = [0,0,0,0,1,1,0,1,0,1]
-    s3 = [1,0,0,1,1,1,0,0,0,1]
-    s4 = [0,1,1,0,0,0,0,0,1,0]
-    
-    s1 = [1,0,1]
-    s2 = [0,0,1]
-    s3 = [0,1,1]
-    
-    
-    states_set = [s1,s2,s3,s4]
-    
-    neural_network = Neural_Network(num_neurons=10, states_set=states_set)
-    
-    print('-'*10 + 'Connection Strengths' + '-'*10 )
-    for row in neural_network.connection_strengths:
-        print(row)
-    print('-'*40)
-    
-
-    print('-'*10 + 'New Neuron States' + '-'*10 )
-    for neuron in neural_network.neurons:
-        state = random.randint(0,1)
-        print(state)
-        neuron.state = state
-    print(f'Energy: {neural_network.get_energy()}')
-    print('-'*10 + 'Corrected Output' + '-'*10 )
-    neural_network.update_neuron_states()
-    for neuron in neural_network.neurons:
-        print(neuron.state)
-    print(f'Energy: {neural_network.get_energy()}')
-
-    '''
-    
-    
